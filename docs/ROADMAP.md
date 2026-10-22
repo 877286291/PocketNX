@@ -16,7 +16,7 @@
 - [x] CPU：ProgramRewriter——扫描并重写 `SVC` / 特权指令，建立 `PC → svc` 映射 → B 完成（扫 .text 将 SVC→BRK#0x504E，建 PC→svc 表，含单测 pnx-program-rewriter-test）
 - [x] CPU：Mach 异常/SVC 陷阱处理，路由到 OS 服务层 → C 完成（SyscallTrap：SIGTRAP 捕获 BRK→查 PC 表→分派→PC+4 恢复，含真信号路径单测 pnx-syscall-trap-test）
 - [x] CPU：内存管理器（guest 地址空间映射、栈/TLS 初始化）→ A4 完成（GuestThread 栈/TLS 分配 + AArch64 直执行 trampoline 设 SP/TPIDR_EL0/x0，含单测 pnx-guest-thread-test）
-- [ ] OS：最小 sfd/sfc/sm/hid 桩 + command dispatch 表
+- [ ] OS：最小 sfd/sfc/sm/hid 桩 + command dispatch 表 → 进行中（D-0 完成：SyscallTrap 捕获/写回完整 AArch64 寄存器文件 x0–x30/sp，DispatchFn 改为 `(TrapContext, GuestRegs&)`，OS 桩可读 x0–x7 参数、写 x0 返回值；含寄存器往返单测 pnx-syscall-trap-test Pass4）
 - [ ] GPU：**Framebuffer 直出后端**（不翻译着色器，把客端 framebuffer 上屏）
 - [ ] 依赖：确认 `allow-jit` entitlement 与侧载流程可用
 - [ ] 目标 demo：一个纯 CPU 的 homebrew（如 `hello` 计数器 / 极简 2D）能跑、能上屏

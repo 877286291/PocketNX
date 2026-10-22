@@ -18,6 +18,17 @@ struct TrapContext {
     uint16_t svc_number = 0; // original Switch service-call number
 };
 
+// Full AArch64 guest register snapshot captured at the trap.
+// x[0..30] are x0..x30 (x[30] == LR); sp is the stack pointer.
+// The dispatch callback mutates this (typically writing the return value into
+// x[0]); all modified registers are written back into the ucontext on resume.
+// This is the D bridge: OS service stubs read arguments from x[0..7] and write
+// results to x[0].
+struct GuestRegs {
+    uint64_t x[31]{};  // x0..x30
+    uint64_t sp = 0;   // stack pointer
+};
+
 // Phase C: SIGTRAP-based trap handling for direct execution.
 //
 // Direct-execution flow:
@@ -35,7 +46,11 @@ struct TrapContext {
 // heavy work.
 class SyscallTrap {
 public:
-    using DispatchFn = std::function<void(const TrapContext&)>;
+    // Dispatch callback (the OS service layer). `regs` is a live snapshot of the
+    // guest register file: read arguments from regs.x[0..7], write the result to
+    // regs.x[0] (and any other register you must modify). The handler writes all
+    // registers back before resuming the guest past the BRK.
+    using DispatchFn = std::function<void(const TrapContext&, GuestRegs&)>;
 
     // `pc_to_svc` maps the absolute address of each rewritten BRK to the
     // original Switch svc number. Must outlive this object (pointer is stored,

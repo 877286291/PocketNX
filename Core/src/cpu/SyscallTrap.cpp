@@ -45,6 +45,42 @@ inline void BumpPc(ucontext_t* ucp) {
 }
 #endif
 
+// Capture the guest register file (x0..x30, sp) from the trap ucontext.
+// Apple's arm_thread_state64_t splits the file: __x[0..28] = x0..x28,
+// __fp = x29, __lr = x30, __sp = sp. There is no __x[29..31].
+#if defined(__APPLE__)
+inline void CaptureRegs(ucontext_t* ucp, GuestRegs& g) {
+    auto& ss = ucp->uc_mcontext->__ss;
+    for (int i = 0; i < 29; ++i) g.x[i] = ss.__x[i]; // x0..x28
+    g.x[29] = ss.__fp;   // x29
+    g.x[30] = ss.__lr;   // x30
+    g.sp = ss.__sp;
+}
+inline void WriteBackRegs(ucontext_t* ucp, const GuestRegs& g) {
+    auto& ss = ucp->uc_mcontext->__ss;
+    for (int i = 0; i < 29; ++i) ss.__x[i] = g.x[i]; // x0..x28
+    ss.__fp = g.x[29];   // x29
+    ss.__lr = g.x[30];   // x30
+    ss.__sp = g.sp;
+}
+#elif defined(__linux__) && defined(__aarch64__)
+inline void CaptureRegs(ucontext_t* ucp, GuestRegs& g) {
+    auto& r = ucp->uc_mcontext.regs;
+    for (int i = 0; i < 31; ++i) g.x[i] = r.regs[i];
+    g.sp = r.sp;
+}
+inline void WriteBackRegs(ucontext_t* ucp, const GuestRegs& g) {
+    auto& r = ucp->uc_mcontext.regs;
+    for (int i = 0; i < 31; ++i) r.regs[i] = g.x[i];
+    r.sp = g.sp;
+}
+#else
+// x86_64 host: an AArch64 guest cannot run natively, so register capture is a
+// no-op (the guest registers are left zeroed). pc/svc still work for tests.
+inline void CaptureRegs(ucontext_t*, GuestRegs&) {}
+inline void WriteBackRegs(ucontext_t*, const GuestRegs&) {}
+#endif
+
 } // namespace
 
 SyscallTrap* SyscallTrap::active_ = nullptr;
@@ -125,10 +161,13 @@ void SyscallTrap::HandleTrap(void* uap) {
         TrapContext tc;
         tc.pc = pc;
         tc.svc_number = svc;
+        GuestRegs gregs;
+        CaptureRegs(ucp, gregs);
         PNX_LOG_INFO("SyscallTrap", "guest SVC trap at pc=0x%" PRIx64 " -> svc 0x%04x",
                      pc, svc);
         if (dispatch_) {
-            dispatch_(tc);
+            dispatch_(tc, gregs);
+            WriteBackRegs(ucp, gregs);  // persist any register the handler changed
         } else {
             PNX_LOG_WARN("SyscallTrap", "svc 0x%04x has no dispatch handler (Phase D not wired)",
                          svc);

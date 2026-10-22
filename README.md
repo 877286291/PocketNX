@@ -8,11 +8,12 @@ PocketNX 是一个**从零构建**的 Nintendo Switch 模拟器，目标是让 i
 ## 为什么从零写（路线 B 的立场）
 
 1. **架构红利**：Switch 的 CPU 是 Cortex-A57（AArch64），苹果芯片也是 AArch64。
-   客端与宿主同 ISA，CPU 模拟可以做成**近 1:1 的二进制翻译 + 块链接（DBT）**，
-   复杂度比 x86 宿主低一个量级。这是本项目的核心优势，必须吃透。
+   客端与宿主同 ISA，**客端代码可直接原样执行，只需重写少数特权/陷阱指令**
+   （SVC、线程指针寄存器等），比通用二进制翻译（DBT）简单一个量级、
+   性能上限更高。这是本项目的核心优势，必须吃透。
 2. **无 GPL 包袱**：不继承 Ryujinx（MIT 但生态被 DMCA 盯上）/ Yuzu（GPLv3）代码，
    许可与分发更干净，也避免被"派生作品"身份牵连。
-3. **深度针对 Apple Silicon 优化**：Metal 原生后端、PPTC 翻译缓存、内存布局，
+3. **深度针对 Apple Silicon 优化**：Metal 原生后端、代码段常驻映射、内存布局，
    全部为 iOS 单 App ~6GB 内存上限量身设计。
 
 代价：工程量约为"拿现成内核套壳"的 5–10 倍。**因此走 homebrew-first 策略**（见下）。
@@ -26,7 +27,7 @@ PocketNX 是一个**从零构建**的 Nintendo Switch 模拟器，目标是让 i
 
 ```
 M0 骨架            ← 你现在在这里
-M1 跑通 homebrew    无加密 NRO/NXO，CPU DBT + 最小 OS + 帧缓冲直出（Metal）
+M1 跑通 homebrew    无加密 NRO/NXO，CPU 直执行 + 最小 OS + 帧缓冲直出（Metal）
 M2 GPU 真实渲染    Maxwell → Metal，纹理/顶点/管线
 M3 OS 服务层       hid/sfc/sm/pl/nifm 等核心服务，文件系统
 M4 体验完善        触控/手柄、存档、分辨率缩放、性能模式
@@ -44,7 +45,7 @@ PocketNX/
 ├── Core/                 C++20 模拟内核（平台无关）
 │   └── src/
 │       ├── common/       日志、类型、Result、内存
-│       ├── cpu/          AArch64 二进制翻译器（DBT）+ 内存模型
+│       ├── cpu/          AArch64 直执行（指令重写 + 加载器 + SVC 陷阱）+ 内存模型
 │       ├── gpu/          Maxwell → Metal 后端（前/后端解耦）
 │       ├── os/           NX OS 服务、内存区、总线
 │       └── fs/           NCA/NRO/NXO/NCM 格式解析

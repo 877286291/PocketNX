@@ -10,13 +10,15 @@
 - [x] iOS Swift 壳结构（App / Views / Services / 桥接）
 - **验收**：工程能在 Xcode 里打开并编译出空壳 App
 
-## M1 — 跑通第一个 homebrew（CPU 闭环）
-- [ ] CPU：AArch64→AArch64 DBT（块翻译 + 链接）
-- [ ] CPU：内存管理器（客端地址空间映射）
-- [ ] CPU：SVC 分派骨架
-- [ ] OS：最小 sfd/sfc/sm/hid 桩
-- [ ] FS：NRO / NSO / NXO 加载 + 重定位
+## M1 — 跑通第一个 homebrew（直接执行闭环）
+- [ ] FS：NRO / NSO / NXO 解析（段表、入口点、重定位表）
+- [ ] CPU：加载器——将 guest 段映射到可执行内存并应用重定位
+- [ ] CPU：ProgramRewriter——扫描并重写 `SVC` / 特权指令，建立 `PC → svc` 映射
+- [ ] CPU：Mach 异常/SVC 陷阱处理，路由到 OS 服务层
+- [ ] CPU：内存管理器（guest 地址空间映射、栈/TLS 初始化）
+- [ ] OS：最小 sfd/sfc/sm/hid 桩 + command dispatch 表
 - [ ] GPU：**Framebuffer 直出后端**（不翻译着色器，把客端 framebuffer 上屏）
+- [ ] 依赖：确认 `allow-jit` entitlement 与侧载流程可用
 - [ ] 目标 demo：一个纯 CPU 的 homebrew（如 `hello` 计数器 / 极简 2D）能跑、能上屏
 - **验收**：iPhone 15 Pro 上运行一个 homebrew，画面/文本可见，不崩
 
@@ -37,7 +39,7 @@
 
 ## M4 — 体验完善
 - [ ] iOS 壳：可配置触控布局、MFC+GC 手柄映射
-- [ ] 设置：分辨率缩放、抗锯齿、30/60 帧率锁定、PPTC 开关
+- [ ] 设置：分辨率缩放、抗锯齿、30/60 帧率锁定、JIT 状态指示
 - [ ] 存档：导出/导入、多档
 - [ ] 性能：着色器缓存、老机型降级路径、JIT 状态指示
 - **验收**：体验接近成品，可长期游玩 homebrew

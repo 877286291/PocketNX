@@ -43,6 +43,12 @@ find_package(Threads REQUIRED)
 target_link_libraries(PocketNXCore PUBLIC Threads::Threads)
 
 # ---------------------------------------------------------------------------
+# Tools: pnx-nro-inspect — standalone NRO/NSO/NXO inspector (dev/diagnostic)
+# ---------------------------------------------------------------------------
+add_executable(pnx-nro-inspect tools/pnx-nro-inspect.cpp)
+target_link_libraries(pnx-nro-inspect PRIVATE PocketNXCore)
+
+# ---------------------------------------------------------------------------
 # Optional: Metal backend. Only build when targeting Apple platforms.
 # The iOS app project links PocketNXCore + the Metal framework.
 # ---------------------------------------------------------------------------

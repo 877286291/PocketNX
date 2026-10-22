@@ -26,6 +26,7 @@ set(CORE_SOURCES
     Core/src/gpu/GPU.cpp
     Core/src/os/OS.cpp
     Core/src/fs/NRO.cpp
+    Core/src/cpu/Loader.cpp
 )
 
 add_library(PocketNXCore STATIC ${CORE_SOURCES})
@@ -47,6 +48,12 @@ target_link_libraries(PocketNXCore PUBLIC Threads::Threads)
 # ---------------------------------------------------------------------------
 add_executable(pnx-nro-inspect tools/pnx-nro-inspect.cpp)
 target_link_libraries(pnx-nro-inspect PRIVATE PocketNXCore)
+
+# ---------------------------------------------------------------------------
+# Tools: pnx-loader-test — self-contained NRO parse + load + relocation test
+# ---------------------------------------------------------------------------
+add_executable(pnx-loader-test tools/pnx-loader-test.cpp)
+target_link_libraries(pnx-loader-test PRIVATE PocketNXCore)
 
 # ---------------------------------------------------------------------------
 # Optional: Metal backend. Only build when targeting Apple platforms.

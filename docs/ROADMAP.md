@@ -11,8 +11,8 @@
 - **验收**：工程能在 Xcode 里打开并编译出空壳 App
 
 ## M1 — 跑通第一个 homebrew（直接执行闭环）
-- [ ] FS：NRO / NSO / NXO 解析（段表、入口点、重定位表）
-- [ ] CPU：加载器——将 guest 段映射到可执行内存并应用重定位
+- [x] FS：NRO / NSO / NXO 解析（段表、入口点、重定位表）→ A1 完成
+- [x] CPU：加载器——将 guest 段映射到可执行内存并应用重定位 → A2+A3 完成（Loader + .dynamic/.rela 重定位，含自包含单测 pnx-loader-test）
 - [ ] CPU：ProgramRewriter——扫描并重写 `SVC` / 特权指令，建立 `PC → svc` 映射
 - [ ] CPU：Mach 异常/SVC 陷阱处理，路由到 OS 服务层
 - [ ] CPU：内存管理器（guest 地址空间映射、栈/TLS 初始化）

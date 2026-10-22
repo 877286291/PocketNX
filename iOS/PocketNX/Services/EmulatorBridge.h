@@ -8,10 +8,12 @@ NS_ASSUME_NONNULL_BEGIN
 // everything goes through this ObjC++ facade. The Core (C++20) is built as a
 // static library and linked into the app.
 //
-// Frame flow (M1+):
-//   Swift MTKView.draw -> [emulator pumpFrame]
-//     -> C++ advances the guest CPU -> on vsync calls GPU::PresentGuestFramebuffer
-//     -> MetalBackend::PresentFramebuffer -> draws into the current drawable texture
+// Frame flow (M1 direct execution):
+//   [emulator start] spawns a guest thread that runs Runtime::Run(); the guest
+//   renders into a shared RGBA8888 buffer (guest and host share addresses).
+//   Swift MTKView.draw -> setDrawableTexture -> [emulator pumpFrame]
+//     -> MetalRenderer::PresentFramebuffer blits the guest buffer (letterboxed)
+//     into the current drawable texture.
 
 typedef NS_ENUM(NSInteger, PNXRunState) {
     PNXRunStateStopped = 0,
@@ -41,9 +43,13 @@ typedef NS_ENUM(NSInteger, PNXRunState) {
 - (void)pumpFrame;
 
 // Diagnostics for the Settings UI.
-- (uint32_t)translatedBlockCount;
+// Frames the guest has published (frame counter from the shared frame info).
+- (uint32_t)guestFrames;
 - (uint32_t)outputWidth;
 - (uint32_t)outputHeight;
+// YES when the allow-jit entitlement is present (required for direct
+// execution of guest code; StikDebug sideload provides it).
+- (BOOL)jitEnabled;
 
 @end
 

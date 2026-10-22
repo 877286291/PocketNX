@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.25)
 project(PocketNX
     VERSION 0.0.1
     DESCRIPTION "PocketNX - native iOS Nintendo Switch emulator (route B)"
-    LANGUAGES CXX C OBJCXX
+    LANGUAGES CXX C
 )
 
 set(CMAKE_CXX_STANDARD 20)

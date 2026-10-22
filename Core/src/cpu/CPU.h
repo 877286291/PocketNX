@@ -61,7 +61,8 @@ public:
         size_t   memory_size = 4ULL * 1024 * 1024 * 1024; // 4GB guest view
     };
 
-    explicit CPU(Config cfg = {});
+    CPU();
+    explicit CPU(Config cfg);
     ~CPU();
 
     void SetMemory(MemoryManager* mem) { mem_ = mem; }

@@ -57,6 +57,7 @@ void MemoryManager::Write64(uint64_t a, uint64_t v) { *static_cast<uint64_t*>(Gu
 // ---------------------------------------------------------------------------
 // CPU
 // ---------------------------------------------------------------------------
+CPU::CPU() : CPU(Config()) {}
 CPU::CPU(Config cfg) : cfg_(cfg) {}
 
 CPU::~CPU() {
@@ -105,7 +106,7 @@ ResultCode CPU::DispatchSVC(uint32_t svc_num) {
     // M0 stub: every service call is unimplemented. As OS services land in
     // M1+, this becomes a dispatch table keyed by (module, command id).
     PNX_LOG_WARN("CPU.SVC", "unimplemented SVC 0x%x", svc_num);
-    return Result::Unimplemented;
+    return Unimplemented;
 }
 
 } // namespace pnx

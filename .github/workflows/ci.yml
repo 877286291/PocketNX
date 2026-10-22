@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Core is platform-independent C++20. We compile it on Linux (fast, primary)
+# and macOS (Apple clang) to catch cross-compiler issues. The iOS Swift shell
+# needs an Xcode project (lands in M1); until then CI covers the Core.
+jobs:
+  core-linux:
+    name: Core (Linux / GCC)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build
+
+      - name: Configure (CMake + Ninja)
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Verify artifact
+        run: ls -la build/libPocketNXCore.a
+
+  core-macos:
+    name: Core (macOS / AppleClang)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (CMake)
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Verify artifact
+        run: ls -la build/libPocketNXCore.a

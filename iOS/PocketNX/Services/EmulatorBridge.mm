@@ -37,7 +37,7 @@ public:
     pnx::VoidResult PresentFramebuffer(const uint8_t* rgba, uint32_t width,
                                        uint32_t height, uint32_t stride) override {
         if (!drawable_) {
-            return pnx::VoidResult::Err(pnx::Result::InvalidArg);
+            return pnx::VoidResult::Err(pnx::InvalidArg);
         }
         // M1 blit: build a texture from the guest framebuffer and draw it to the
         // drawable. Full pipeline (vertex/fragment MSL, blend, scaling) lands in

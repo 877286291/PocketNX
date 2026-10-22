@@ -25,7 +25,7 @@ ResultCode OS::Dispatch(uint32_t svc_num, const uint8_t* /*args*/, size_t /*len*
     // The mapping is fixed by the NX OS spec; we will build it from a generated
     // header derived from the command-id database. For now everything is stub.
     PNX_LOG_DEBUG("OS", "dispatch SVC 0x%x (stub)", svc_num);
-    return Result::Unimplemented;
+    return Unimplemented;
 }
 
 } // namespace pnx

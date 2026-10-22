@@ -36,7 +36,8 @@ public:
         uint32_t scale_factor = 1;         // resolution scaling (M4)
     };
 
-    explicit GPU(Config cfg = {});
+    GPU();
+    explicit GPU(Config cfg);
     ~GPU();
 
     void SetRenderer(std::shared_ptr<IRenderer> r) { renderer_ = std::move(r); }

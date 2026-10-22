@@ -19,12 +19,12 @@ struct ProcessContext {
 };
 
 // One NX OS service (hid, sfc, sm, ...). Implementations return ResultCode for
-// each guest command id. Unimplemented commands should return Result::Unimplemented.
+// each guest command id. Unimplemented commands should return `Unimplemented`.
 class Service {
 public:
     virtual ~Service() = default;
     virtual const char* Name() const = 0;
-    // command id -> ResultCode. `args` is the guest-passed argument buffer.
+    // Dispatch one guest command. `args` is the guest-passed argument buffer.
     virtual ResultCode Handle(uint32_t command_id, const uint8_t* args, size_t len) = 0;
 };
 

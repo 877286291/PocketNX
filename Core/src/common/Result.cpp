@@ -1,10 +1,12 @@
+// Result<T> is header-only (pure inline). This translation unit is kept so the
+// build always has a stable .cpp anchor for the common module; future error
+// string tables can live here.
+
 #include "common/Result.h"
 
-// Result is header-only; this translation unit keeps it visible to the
-// build and is a placeholder for future error-string tables.
 namespace pnx {
-namespace Result {
-    // Intentionally empty anchor symbol.
-    inline ResultCode Anchor() { return Unimplemented; }
-} // namespace Result
+namespace {
+// Anchor: ensures the module compiles even if no other TU uses Result.
+[[maybe_unused]] constexpr ResultCode kAnchor = ResultOk;
+} // namespace
 } // namespace pnx

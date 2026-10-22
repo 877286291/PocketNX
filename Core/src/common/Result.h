@@ -10,19 +10,18 @@ namespace pnx {
 using ResultCode = uint32_t;
 constexpr ResultCode ResultOk = 0;
 
-// Module / error codes. Kept minimal for M0; expand as services are added.
-namespace Result {
-    constexpr ResultCode ModuleCPU  = 0x0100;
-    constexpr ResultCode ModuleGPU  = 0x0200;
-    constexpr ResultCode ModuleOS   = 0x0300;
-    constexpr ResultCode ModuleFS   = 0x0500;
+// Module / error codes, flattened into pnx (a `namespace Result` would clash
+// with the `Result<T>` template below). Keep minimal for M0.
+constexpr ResultCode ModuleCPU  = 0x0100;
+constexpr ResultCode ModuleGPU  = 0x0200;
+constexpr ResultCode ModuleOS   = 0x0300;
+constexpr ResultCode ModuleFS   = 0x0500;
 
-    constexpr ResultCode Unimplemented = 0xFFFF;
-    constexpr ResultCode NotFound      = 0xFFF1;
-    constexpr ResultCode InvalidArg    = 0xFFF2;
-    constexpr ResultCode AccessDenied  = 0xFFF3;
-    constexpr ResultCode Unsupported   = 0xFFF4;
-}
+constexpr ResultCode Unimplemented = 0xFFFF;
+constexpr ResultCode NotFound      = 0xFFF1;
+constexpr ResultCode InvalidArg    = 0xFFF2;
+constexpr ResultCode AccessDenied  = 0xFFF3;
+constexpr ResultCode Unsupported   = 0xFFF4;
 
 // Lightweight tagged result. Use for fallible kernel operations.
 template <typename T>

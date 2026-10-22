@@ -1,0 +1,35 @@
+# Build artifacts
+build/
+build-*/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+!fastlane/README.xcodeproj
+
+# Object / debug
+*.o
+*.a
+*.dSYM/
+*.ipa
+*.dSYM
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Secrets — NEVER commit these. They are user-provided, legally obtained assets.
+prod.keys
+*keys*
+Firmware/
+NCA/
+roms/
+*.nca
+*.nsp
+*.xci

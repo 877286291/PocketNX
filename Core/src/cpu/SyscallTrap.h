@@ -39,9 +39,12 @@ struct GuestRegs {
 //     3. invoke the dispatch callback (the OS service layer, Phase D);
 //     4. advance PC past the 4-byte BRK so the guest resumes after the call.
 //
-// BRKs whose PC is NOT in the table are logged and execution resumes (a guest
-// may use its own brk for debug purposes); this keeps the handler safe for the
-// whole process. M1 scope: single active instance, single guest thread;
+// BRKs whose PC is NOT in the table are not PocketNX traps (e.g. a stray host
+// BRK or a debugger breakpoint — SIGTRAP is process-wide). The handler
+// restores the previous SIGTRAP disposition and hands the same ucontext to it,
+// so an unhandled BRK behaves as if PocketNX had never installed a handler.
+// The handoff uninstalls us; callers that want to keep trapping must
+// Install() again. M1 scope: single active instance, single guest thread;
 // dispatch work runs in signal context, so Phase D must keep it light or defer
 // heavy work.
 class SyscallTrap {
@@ -70,6 +73,16 @@ public:
     // Set the dispatch callback (the OS service layer).
     void SetDispatch(DispatchFn fn) { dispatch_ = std::move(fn); }
 
+    // Tell the handler where the guest's TLS block lives (set by
+    // Runtime::Prepare right after AllocateGuestContext). During dispatch the
+    // handler swaps TPIDR_EL0 to the host TLS (stashed by the trampoline in
+    // guest TLS slot 1, offset 8) so host C++ (errno, etc.) uses the real
+    // host TLS. The swap only fires when the trapped thread's TPIDR_EL0
+    // actually equals this block — a per-trap comparison, because SIGTRAP is
+    // process-wide and a stray host BRK on another thread must not have its
+    // TLS touched.
+    void SetGuestTlsBlock(uint64_t tls_block) { guest_tls_block_ = tls_block; }
+
     // PC of the most recent trap handled (diagnostics; also how the smoke
     // test learns where its brk instruction lives). 0 if none yet.
     uint64_t LastTrapPc() const { return last_trap_pc_.load(std::memory_order_acquire); }
@@ -79,7 +92,7 @@ public:
 
 private:
     static void SignalTrampoline(int sig, siginfo_t* info, void* uap);
-    void HandleTrap(void* uap);
+    void HandleTrap(int sig, siginfo_t* info, void* uap);
 
     static SyscallTrap* active_;  // single active instance (M1)
 
@@ -88,6 +101,7 @@ private:
     std::atomic<uint64_t> last_trap_pc_{0};
     std::atomic<bool> in_trap_{false};
     bool installed_ = false;
+    uint64_t guest_tls_block_ = 0;
     struct sigaction prev_action_{};
 };
 

@@ -245,6 +245,12 @@ void Loader::Relocate(const NROImage& img, LoadedModule& mod) {
         }
     }
     const auto has = [&](uint64_t t) { return dyn.find(t) != dyn.end(); };
+    if (dyn.empty()) {
+        // A DT_NULL-only .dynamic is a valid "no relocations" layout (the
+        // M1 NRO builder emits this for self-contained homebrew).
+        PNX_LOG_INFO("Loader", "dynamic: empty (DT_NULL only); no relocations");
+        return;
+    }
     PNX_LOG_INFO("Loader",
                  "dynamic: SYMTAB=%d STRTAB=%d STRSZ=%d RELA=%d RELASZ=%d JMPREL=%d PLTRELSZ=%d",
                  (int)has(DT_SYMTAB), (int)has(DT_STRTAB), (int)has(DT_STRSZ),

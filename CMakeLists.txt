@@ -61,6 +61,11 @@ target_link_libraries(PocketNXCore PUBLIC Threads::Threads)
 add_executable(pnx-nro-inspect tools/pnx-nro-inspect.cpp)
 target_link_libraries(pnx-nro-inspect PRIVATE PocketNXCore)
 
+# Tools: pnx-nro-build — pack a Mach-O arm64 relocatable into a minimal NRO
+# (M1 demo builder; dev-host tool, requires an arm64 Mach-O toolchain)
+add_executable(pnx-nro-build tools/pnx-nro-build.cpp)
+target_link_libraries(pnx-nro-build PRIVATE PocketNXCore)
+
 # ---------------------------------------------------------------------------
 # Tools: pnx-loader-test — self-contained NRO parse + load + relocation test
 # ---------------------------------------------------------------------------
@@ -82,7 +87,10 @@ target_link_libraries(pnx-program-rewriter-test PRIVATE PocketNXCore)
 # ---------------------------------------------------------------------------
 # Tools: pnx-syscall-trap-test — BRK/SIGTRAP trap + dispatch smoke test
 # ---------------------------------------------------------------------------
-add_executable(pnx-syscall-trap-test tools/pnx-syscall-trap-test.cpp)
+add_executable(pnx-syscall-trap-test
+  tools/pnx-syscall-trap-test.cpp
+  tools/pnx-syscall-trap-guest.S
+)
 target_link_libraries(pnx-syscall-trap-test PRIVATE PocketNXCore)
 
 # ---------------------------------------------------------------------------

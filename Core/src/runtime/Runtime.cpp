@@ -94,7 +94,7 @@ Result<void> Runtime::Prepare() {
     frame_info_.stride = cfg_.frame_width * 4;
     frame_info_.format = 0; // RGBA8888
     frame_info_.capacity = static_cast<uint32_t>(fb_bytes);
-    frame_info_.max_frames = 0; // infinite by default
+    frame_info_.max_frames = cfg_.max_frames; // 0 = guest runs forever
     frame_info_.pixels = reinterpret_cast<uint64_t>(pixels_.data());
     frame_info_.counter = 0;
 
@@ -154,6 +154,14 @@ Result<void> Runtime::Prepare() {
             return Result<void>::Err(Unsupported);
         }
     }
+    // Apple Silicon (W^X): instruction-cache maintenance is only guaranteed to
+    // take effect once the page is no longer writable, so flush again now that
+    // the text page is RX. The ProgramRewriter's earlier flush (while RW) is
+    // kept for other platforms and as a cheap first pass.
+#if defined(__APPLE__) && defined(__aarch64__)
+    __builtin___clear_cache(reinterpret_cast<char*>(host + page_start),
+                            reinterpret_cast<char*>(host + page_end));
+#endif
 #endif
 
     // 4. Allocate guest stack + TLS; set entry and the framebuffer pointer.
@@ -167,6 +175,9 @@ Result<void> Runtime::Prepare() {
 
     // 5. Install the SIGTRAP handler and wire the OS dispatch into it.
     trap_ = std::make_unique<SyscallTrap>(pc_to_svc_);
+    // The trap must know the guest TLS block to recognize guest traps and
+    // run host dispatch code on the host TLS (see SyscallTrap::HandleTrap).
+    trap_->SetGuestTlsBlock(reinterpret_cast<uint64_t>(ctx_.tls));
     OS::Wire(*trap_, os_);
     auto ir = trap_->Install();
     if (!ir.IsOk()) {

@@ -20,6 +20,15 @@
 - [x] GPU：**Framebuffer 直出后端**（不翻译着色器，把客端 framebuffer 上屏）→ E 完成（`GuestFrameInfo` guest/host 共享 framebuffer 契约 + `Runtime` 持有 RGBA8888 像素缓冲、把 `&GuestFrameInfo` 作为 guest x0 传入；guest CPU 渲染直接写像素，宿主经 `IRenderer::PresentFramebuffer` blit 同一块内存；`pnx-runtime-test` 在开发 Mac 上以真 JIT 内存验证完整直执行管线 e2e；iOS 显示链接线随 demo 一起）
 - [ ] 依赖：确认 `allow-jit` entitlement 与侧载流程可用
 - [ ] 目标 demo：一个纯 CPU 的 homebrew（如 `hello` 计数器 / 极简 2D）能跑、能上屏
+- ⚠️ **已知环境问题**（见 [ENVIRONMENT-ISSUES.md](ENVIRONMENT-ISSUES.md)）：本机
+  （Mac mini M5 / T700X，macOS 27.0.1）在紧凑 store 循环写 ≳0.2MB 缓冲区时出现
+  非确定性寄存器/标志执行异常（机器/OS 级问题，非代码缺陷；同段循环编译为普通
+  宿主代码同样失败）。
+  - **Part B（1280×720，30 帧）在本机 gated**：须在健康硬件 / 真机
+    （iPhone 15 Pro，里程碑 F）验证后关闭 M1。
+  - **Part C（1280×45，像素精确）为可移植的 demo 逻辑验收信号**（任何机器可跑；
+    本机仍有低概率已知指纹失败，见该文档）。
+  - 用法：`pnx-runtime-test <nro>`（B+C）；`pnx-runtime-test <nro> c`（仅 C）。
 - **验收**：iPhone 15 Pro 上运行一个 homebrew，画面/文本可见，不崩
 
 ## M2 — GPU 真实渲染

@@ -38,12 +38,14 @@ public:
         size_t tls_size;        // guest TLS block, bytes (page-aligned up)
         uint32_t frame_width;   // framebuffer width in pixels
         uint32_t frame_height;  // framebuffer height in pixels
+        uint32_t max_frames;    // 0 = guest runs forever; N = stop after N frames
         Config()
             : base_address(0x10000000),
               stack_size(1 << 20),
               tls_size(4096),
               frame_width(1280),
-              frame_height(720) {}
+              frame_height(720),
+              max_frames(0) {}
     };
 
     explicit Runtime(Config cfg = {});

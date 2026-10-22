@@ -13,6 +13,11 @@
 //     Core/src/common/Result.cpp Core/src/cpu/SyscallTrap.cpp \
 //     Core/src/os/OS.cpp Core/src/os/Services.cpp Core/src/os/SvcTable.cpp \
 //     -o pnx-os-dispatch-test -pthread
+#if defined(__APPLE__)
+#define _XOPEN_SOURCE
+#include <ucontext.h>
+#endif
+
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -171,6 +176,22 @@ void RunUnitTests(OS& os, bool& ok) {
 #if defined(__aarch64__)
 static std::atomic<uint64_t> g_tick_after{0};
 
+// The "previous" SIGTRAP disposition this test installs before the
+// SyscallTrap. Under the not-ours handoff semantics the first (unregistered)
+// BRK is forwarded here; it simply skips the BRK so the guest resumes.
+// (Async-signal-safe: touches the ucontext only.)
+static void PrevSkipBrk(int, siginfo_t*, void* uap) {
+#if defined(__APPLE__)
+    auto* ucp = static_cast<ucontext_t*>(uap);
+    ucp->uc_mcontext->__ss.__pc += 4;
+#elif defined(__linux__) && defined(__aarch64__)
+    auto* ucp = static_cast<ucontext_t*>(uap);
+    ucp->uc_mcontext.regs.pc += 4;
+#else
+    (void)uap;
+#endif
+}
+
 __attribute__((noinline)) static void GuestTickSite() {
     asm volatile(
         "brk #0x0F00\n"
@@ -184,23 +205,48 @@ void RunSignalPathTest(OS& os, bool& ok) {
     std::unordered_map<uint64_t, uint16_t> table;
     SyscallTrap trap(table);
     OS::Wire(trap, os);
+
+    // Install an observable "previous" disposition before the SyscallTrap so
+    // the first (unregistered) BRK is skipped by handoff instead of being
+    // fatal (previous = SIG_DFL would terminate the process).
+    struct sigaction psa;
+    std::memset(&psa, 0, sizeof(psa));
+    psa.sa_sigaction = &PrevSkipBrk;
+    psa.sa_flags = SA_SIGINFO;
+    sigemptyset(&psa.sa_mask);
+    if (sigaction(SIGTRAP, &psa, nullptr) != 0) {
+        ok &= Check(false, "signal: could not install previous handler");
+        return;
+    }
+
     auto ir = trap.Install();
     if (!ir.IsOk()) {
         ok &= Check(false, "signal: trap install failed");
         return;
     }
 
-    // First pass: BRK not yet in table -> unknown, no dispatch.
+    // First pass: BRK not yet in the table -> not ours -> the trap hands off
+    // to the previous disposition (which skips the BRK). The handler records
+    // the PC before the handoff, so it is learnable via LastTrapPc.
     GuestTickSite();
     const uint64_t brk_pc = trap.LastTrapPc();
-    ok &= Check(brk_pc != 0, "signal: learned BRK pc");
+    ok &= Check(brk_pc != 0, "signal: learned BRK pc via handoff");
 
-    // Second pass: register the pc as GetSystemTick; x0 should come back > 0.
+    // The handoff uninstalled the trap; re-install (the previous disposition
+    // becomes the new prev_action_) and register the PC as GetSystemTick.
+    auto ir2 = trap.Install();
+    ok &= Check(ir2.IsOk(), "signal: re-install after handoff works");
     table[brk_pc] = 0x1E;
     GuestTickSite();
     ok &= Check(g_tick_after.load() > 0, "signal: GetSystemTick x0 visible after resume");
 
     trap.Uninstall();
+    // Leave the process with the default SIGTRAP disposition.
+    struct sigaction dfl;
+    std::memset(&dfl, 0, sizeof(dfl));
+    dfl.sa_handler = SIG_DFL;
+    sigemptyset(&dfl.sa_mask);
+    sigaction(SIGTRAP, &dfl, nullptr);
 }
 #endif
 

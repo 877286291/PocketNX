@@ -127,7 +127,10 @@ std::string ReadCString(const uint8_t* data, size_t size, uint32_t offset, uint3
     }
     const size_t available = std::min(static_cast<size_t>(max_size), size - offset);
     const char* begin = reinterpret_cast<const char*>(data + offset);
-    const size_t length = strnlen(begin, available);
+    size_t length = 0;
+    while (length < available && begin[length] != '\0') {
+        ++length;
+    }
     return std::string(begin, length);
 }
 

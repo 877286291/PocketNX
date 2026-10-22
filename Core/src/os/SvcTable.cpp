@@ -1,9 +1,9 @@
 #include "os/SvcTable.h"
 
 #include <chrono>
+#include <ctime>
 #include <cstring>
 #include <string>
-#include <thread>
 
 #include "common/Log.h"
 #include "os/Services.h"
@@ -78,15 +78,17 @@ void RegisterDefaultSVCs(OS& os) {
 
     // 0x0B SleepThread: x0 = nanoseconds. Negative/zero values mean yield;
     // M1 simply does not sleep. Long sleeps are capped to keep the host alive.
+    // NOTE: dispatch runs in signal context (the BRK trap interrupts the guest),
+    // so we must use the async-signal-safe nanosleep, not std::this_thread.
     os.RegisterSvc(0x0B, "SleepThread", [](const TrapContext&, GuestRegs& regs) {
         const int64_t ns = static_cast<int64_t>(regs.x[0]);
         if (ns > 0) {
             constexpr int64_t kMaxNs = 1'000'000'000; // 1 second
             const int64_t sleep_ns = (ns < kMaxNs) ? ns : kMaxNs;
-            if (ns != sleep_ns) {
-                PNX_LOG_WARN("OS", "SleepThread capped from %lld ns to 1s", (long long)ns);
-            }
-            std::this_thread::sleep_for(std::chrono::nanoseconds(sleep_ns));
+            struct timespec ts;
+            ts.tv_sec = static_cast<time_t>(sleep_ns / 1000000000LL);
+            ts.tv_nsec = static_cast<long>(sleep_ns % 1000000000LL);
+            ::nanosleep(&ts, nullptr);
         }
         regs.x[0] = 0;
         return ResultOk;

@@ -17,7 +17,7 @@
 - [x] CPU：Mach 异常/SVC 陷阱处理，路由到 OS 服务层 → C 完成（SyscallTrap：SIGTRAP 捕获 BRK→查 PC 表→分派→PC+4 恢复，含真信号路径单测 pnx-syscall-trap-test）
 - [x] CPU：内存管理器（guest 地址空间映射、栈/TLS 初始化）→ A4 完成（GuestThread 栈/TLS 分配 + AArch64 直执行 trampoline 设 SP/TPIDR_EL0/x0，含单测 pnx-guest-thread-test）
 - [x] OS：最小 sfd/sfc/sm/hid 桩 + command dispatch 表 → D 完成（D-0：寄存器捕获/写回桥；D：OS 层按 SVC 号建 command dispatch 表，实现 20 个内核 SVC（SleepThread/GetSystemTick/GetInfo/CloseHandle/WaitSynchronization/ConnectToNamedPort/SendSyncRequest 系/OutputDebugString/ExitProcess 等），sm/hid/sfc/sfd 服务桩经 SendSyncRequest 按 handle+command 路由，未实现命令返回 Unimplemented 并记日志；含单测+信号路径集成测试 pnx-os-dispatch-test）
-- [ ] GPU：**Framebuffer 直出后端**（不翻译着色器，把客端 framebuffer 上屏）
+- [x] GPU：**Framebuffer 直出后端**（不翻译着色器，把客端 framebuffer 上屏）→ E 完成（`GuestFrameInfo` guest/host 共享 framebuffer 契约 + `Runtime` 持有 RGBA8888 像素缓冲、把 `&GuestFrameInfo` 作为 guest x0 传入；guest CPU 渲染直接写像素，宿主经 `IRenderer::PresentFramebuffer` blit 同一块内存；`pnx-runtime-test` 在开发 Mac 上以真 JIT 内存验证完整直执行管线 e2e；iOS 显示链接线随 demo 一起）
 - [ ] 依赖：确认 `allow-jit` entitlement 与侧载流程可用
 - [ ] 目标 demo：一个纯 CPU 的 homebrew（如 `hello` 计数器 / 极简 2D）能跑、能上屏
 - **验收**：iPhone 15 Pro 上运行一个 homebrew，画面/文本可见，不崩

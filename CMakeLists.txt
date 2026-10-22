@@ -25,6 +25,8 @@ set(CORE_SOURCES
     Core/src/cpu/BlockCache.cpp
     Core/src/gpu/GPU.cpp
     Core/src/os/OS.cpp
+    Core/src/os/Services.cpp
+    Core/src/os/SvcTable.cpp
     Core/src/fs/NRO.cpp
     Core/src/cpu/Loader.cpp
     Core/src/cpu/GuestThread.cpp
@@ -81,6 +83,12 @@ target_link_libraries(pnx-program-rewriter-test PRIVATE PocketNXCore)
 # ---------------------------------------------------------------------------
 add_executable(pnx-syscall-trap-test tools/pnx-syscall-trap-test.cpp)
 target_link_libraries(pnx-syscall-trap-test PRIVATE PocketNXCore)
+
+# ---------------------------------------------------------------------------
+# Tools: pnx-os-dispatch-test — OS command-dispatch table + service stubs test
+# ---------------------------------------------------------------------------
+add_executable(pnx-os-dispatch-test tools/pnx-os-dispatch-test.cpp)
+target_link_libraries(pnx-os-dispatch-test PRIVATE PocketNXCore)
 
 # ---------------------------------------------------------------------------
 # Optional: Metal backend. Only build when targeting Apple platforms.

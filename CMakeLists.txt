@@ -27,7 +27,14 @@ set(CORE_SOURCES
     Core/src/os/OS.cpp
     Core/src/fs/NRO.cpp
     Core/src/cpu/Loader.cpp
+    Core/src/cpu/GuestThread.cpp
 )
+
+# AArch64 trampoline for direct guest execution.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    enable_language(ASM)
+    list(APPEND CORE_SOURCES Core/src/cpu/GuestThreadTrampoline.S)
+endif()
 
 add_library(PocketNXCore STATIC ${CORE_SOURCES})
 target_include_directories(PocketNXCore PUBLIC Core/src)
@@ -54,6 +61,12 @@ target_link_libraries(pnx-nro-inspect PRIVATE PocketNXCore)
 # ---------------------------------------------------------------------------
 add_executable(pnx-loader-test tools/pnx-loader-test.cpp)
 target_link_libraries(pnx-loader-test PRIVATE PocketNXCore)
+
+# ---------------------------------------------------------------------------
+# Tools: pnx-guest-thread-test — stack/TLS + direct-exec trampoline smoke test
+# ---------------------------------------------------------------------------
+add_executable(pnx-guest-thread-test tools/pnx-guest-thread-test.cpp)
+target_link_libraries(pnx-guest-thread-test PRIVATE PocketNXCore)
 
 # ---------------------------------------------------------------------------
 # Optional: Metal backend. Only build when targeting Apple platforms.

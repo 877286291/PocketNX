@@ -14,7 +14,7 @@
 - [x] FS：NRO / NSO / NXO 解析（段表、入口点、重定位表）→ A1 完成
 - [x] CPU：加载器——将 guest 段映射到可执行内存并应用重定位 → A2+A3 完成（Loader + .dynamic/.rela 重定位，含自包含单测 pnx-loader-test）
 - [x] CPU：ProgramRewriter——扫描并重写 `SVC` / 特权指令，建立 `PC → svc` 映射 → B 完成（扫 .text 将 SVC→BRK#0x504E，建 PC→svc 表，含单测 pnx-program-rewriter-test）
-- [ ] CPU：Mach 异常/SVC 陷阱处理，路由到 OS 服务层
+- [x] CPU：Mach 异常/SVC 陷阱处理，路由到 OS 服务层 → C 完成（SyscallTrap：SIGTRAP 捕获 BRK→查 PC 表→分派→PC+4 恢复，含真信号路径单测 pnx-syscall-trap-test）
 - [x] CPU：内存管理器（guest 地址空间映射、栈/TLS 初始化）→ A4 完成（GuestThread 栈/TLS 分配 + AArch64 直执行 trampoline 设 SP/TPIDR_EL0/x0，含单测 pnx-guest-thread-test）
 - [ ] OS：最小 sfd/sfc/sm/hid 桩 + command dispatch 表
 - [ ] GPU：**Framebuffer 直出后端**（不翻译着色器，把客端 framebuffer 上屏）

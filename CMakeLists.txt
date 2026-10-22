@@ -29,6 +29,7 @@ set(CORE_SOURCES
     Core/src/cpu/Loader.cpp
     Core/src/cpu/GuestThread.cpp
     Core/src/cpu/ProgramRewriter.cpp
+    Core/src/cpu/SyscallTrap.cpp
 )
 
 # AArch64 trampoline for direct guest execution.
@@ -74,6 +75,12 @@ target_link_libraries(pnx-guest-thread-test PRIVATE PocketNXCore)
 # ---------------------------------------------------------------------------
 add_executable(pnx-program-rewriter-test tools/pnx-program-rewriter-test.cpp)
 target_link_libraries(pnx-program-rewriter-test PRIVATE PocketNXCore)
+
+# ---------------------------------------------------------------------------
+# Tools: pnx-syscall-trap-test — BRK/SIGTRAP trap + dispatch smoke test
+# ---------------------------------------------------------------------------
+add_executable(pnx-syscall-trap-test tools/pnx-syscall-trap-test.cpp)
+target_link_libraries(pnx-syscall-trap-test PRIVATE PocketNXCore)
 
 # ---------------------------------------------------------------------------
 # Optional: Metal backend. Only build when targeting Apple platforms.

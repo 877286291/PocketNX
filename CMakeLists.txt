@@ -28,6 +28,7 @@ set(CORE_SOURCES
     Core/src/fs/NRO.cpp
     Core/src/cpu/Loader.cpp
     Core/src/cpu/GuestThread.cpp
+    Core/src/cpu/ProgramRewriter.cpp
 )
 
 # AArch64 trampoline for direct guest execution.
@@ -67,6 +68,12 @@ target_link_libraries(pnx-loader-test PRIVATE PocketNXCore)
 # ---------------------------------------------------------------------------
 add_executable(pnx-guest-thread-test tools/pnx-guest-thread-test.cpp)
 target_link_libraries(pnx-guest-thread-test PRIVATE PocketNXCore)
+
+# ---------------------------------------------------------------------------
+# Tools: pnx-program-rewriter-test — SVC -> BRK rewriting smoke test
+# ---------------------------------------------------------------------------
+add_executable(pnx-program-rewriter-test tools/pnx-program-rewriter-test.cpp)
+target_link_libraries(pnx-program-rewriter-test PRIVATE PocketNXCore)
 
 # ---------------------------------------------------------------------------
 # Optional: Metal backend. Only build when targeting Apple platforms.

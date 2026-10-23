@@ -23,5 +23,14 @@ struct ContentView: View {
         .fullScreenCover(item: $selectedGame) { game in
             GameView(game: game)
         }
+        .onAppear {
+            // `-autoDemo` launch argument boots straight into the built-in demo
+            // (used by `xcrun simctl launch ... -autoDemo` for automated
+            // on-simulator acceptance without UI interaction).
+            if ProcessInfo.processInfo.arguments.contains("-autoDemo"),
+               let demo = GameItem.bundledDemo() {
+                selectedGame = demo
+            }
+        }
     }
 }

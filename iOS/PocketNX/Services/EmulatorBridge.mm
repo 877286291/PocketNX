@@ -6,6 +6,7 @@
 #include <thread>
 
 #include <sys/mman.h>
+#include <stdio.h>
 
 #include "common/Log.h"
 #include "common/Result.h"
@@ -240,6 +241,33 @@ private:
     return instance;
 }
 
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        // Optional debug hook: `-logFile <name>` redirects every PNX_LOG line
+        // (fprintf to stderr) into a file in the app's Documents container, so
+        // logs can be pulled from the host via
+        //   xcrun simctl get_app_container booted com.pocketnx.app data
+        // and read at <container>/Documents/<name>. Genuinely useful on device
+        // too, where there is no attached console.
+        NSArray<NSString *> *args = [[NSProcessInfo processInfo] arguments];
+        for (NSUInteger i = 0; i + 1 < args.count; ++i) {
+            if ([args[i] isEqualToString:@"-logFile"]) {
+                NSString *dir = [NSSearchPathForDirectoriesInDomains(
+                    NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
+                if (dir.length == 0) {
+                    dir = NSTemporaryDirectory();
+                }
+                NSString *path = [dir stringByAppendingPathComponent:args[i + 1]];
+                if (freopen(path.fileSystemRepresentation, "w", stderr) != NULL) {
+                    setvbuf(stderr, NULL, _IOLBF, 0);
+                }
+            }
+        }
+    }
+    return self;
+}
+
 - (void)setupWithDevice:(id<MTLDevice>)device queue:(id<MTLCommandQueue>)queue {
     if (!device || !queue) {
         return;
@@ -274,6 +302,25 @@ private:
     cfg.frame_width = 1280;
     cfg.frame_height = 720;
     cfg.max_frames = 0;
+    // Optional debug override via launch args, e.g.
+    //   xcrun simctl launch booted com.pocketnx.app -autoDemo -frameW 160 -frameH 90
+    // Lets the demo run at a small framebuffer, which on the known-affected
+    // dev machine (see docs/ENVIRONMENT-ISSUES.md) avoids the store-loop
+    // anomaly and gives a clean visual pass of the full pipeline.
+    NSArray<NSString *> *launchArgs = [[NSProcessInfo processInfo] arguments];
+    for (NSUInteger i = 0; i + 1 < launchArgs.count; ++i) {
+        if ([launchArgs[i] isEqualToString:@"-frameW"]) {
+            cfg.frame_width = (uint32_t)[launchArgs[i + 1] intValue];
+        } else if ([launchArgs[i] isEqualToString:@"-frameH"]) {
+            cfg.frame_height = (uint32_t)[launchArgs[i + 1] intValue];
+        }
+    }
+    if (cfg.frame_width == 0) {
+        cfg.frame_width = 1280;
+    }
+    if (cfg.frame_height == 0) {
+        cfg.frame_height = 720;
+    }
     auto rt = std::make_unique<pnx::Runtime>(cfg);
 
     auto lr = rt->LoadPath(std::string(url.path.UTF8String));

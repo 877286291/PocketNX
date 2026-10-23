@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 // Scans a user-chosen directory for NRO / NSO / NXO homebrew files.
 // M0: lists files found; M1: adds thumbnails + sort; M5: NCA titles.
@@ -13,6 +14,14 @@ struct LibraryView: View {
 
     var body: some View {
         List {
+            if let demo = GameItem.bundledDemo() {
+                Button {
+                    onSelect(demo)
+                } label: {
+                    Label(demo.name, systemImage: "play.circle.fill")
+                        .foregroundStyle(.blue)
+                }
+            }
             if games.isEmpty {
                 emptyState
             } else {
@@ -31,10 +40,8 @@ struct LibraryView: View {
         .navigationTitle("Game Library")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button("Import Homebrew…", systemImage: "plus") {
-                        showingPicker = true
-                    }
+                Button("Import Homebrew…", systemImage: "plus") {
+                    showingPicker = true
                 }
             }
         }

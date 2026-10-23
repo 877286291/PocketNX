@@ -37,12 +37,12 @@ struct GameView: View {
                })
         .onAppear {
             let emu = PNXEmulator.shared()
-            var err: NSError?
-            if emu.loadGameAtURL(game.url, error: &err) {
+            do {
+                try emu.loadGame(at: game.url)
                 emu.start()
                 isPaused = false // begin the MTKView render loop
-            } else {
-                loadError = err?.localizedDescription ?? "Unknown error"
+            } catch {
+                loadError = error.localizedDescription
             }
         }
         .onDisappear {
@@ -67,8 +67,8 @@ struct EmulatorMetalView: UIViewRepresentable {
         view.isMultipleTouchEnabled = false
         view.autoResizeDrawable = true
         view.delegate = context.coordinator
-        if let device = view.device, let queue = view.commandQueue {
-            PNXEmulator.shared().setupWithDevice(device, queue: queue)
+        if let device = view.device, let queue = device.makeCommandQueue() {
+            PNXEmulator.shared().setup(with: device, queue: queue)
         }
         return view
     }
@@ -82,8 +82,8 @@ struct EmulatorMetalView: UIViewRepresentable {
 
         func draw(in view: MTKView) {
             let emu = PNXEmulator.shared()
-            if let drawable = view.currentDrawable, let texture = drawable.texture {
-                emu.setDrawableTexture(texture)
+            if let drawable = view.currentDrawable {
+                emu.setDrawableTexture(drawable.texture)
             }
             emu.pumpFrame()
         }

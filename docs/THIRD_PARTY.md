@@ -4,6 +4,9 @@
 > 名称 / 版本 / 许可 / 用途，并确保许可与本项目兼容。
 
 **当前状态（M1）**：无第三方运行时依赖，Core 仅依赖 C/C++ 标准库与平台系统库。
+iOS App 仅依赖 Apple 系统框架（Foundation / UIKit / SwiftUI / Metal / MetalKit /
+UniformTypeIdentifiers）。`xcodegen` 仅为本地开发工具，用于从 `project.yml`
+生成 Xcode 工程，不进入 App 产物，不视为运行时依赖。
 
 ## 规划中（M2+ 可能引入）
 

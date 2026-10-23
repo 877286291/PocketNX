@@ -23,6 +23,9 @@ PocketNX 是一个**从零构建**的 Nintendo Switch 模拟器，目标是让 i
 **阶段 M1（代码侧已闭环）**：CPU 直执行 + 最小 OS 服务 + 帧缓冲直出后端已实现，
 内置 demo（`demo/hello_counter.nro`：HELLO + 帧计数器）可在开发机 / 真机运行；
 iOS 桥接（`EmulatorBridge`，ObjC++）已接通 C++ `Runtime` 与 Metal 直出。
+iOS App 已在 iOS 27 模拟器构建并运行：完整管线（载入 → 重写 → 直执行 →
+trap 分派 → 帧缓冲 → Metal blit）经 App 日志验证通过；本机 store 循环异常
+同样影响模拟器运行（见 [docs/ENVIRONMENT-ISSUES.md](docs/ENVIRONMENT-ISSUES.md) §4.5）。
 **待办**：iPhone 15 Pro 真机 1280×720 验收（里程碑 F，见
 [docs/ROADMAP.md](docs/ROADMAP.md)）。
 
@@ -73,8 +76,21 @@ cmake --build build --config Release
 ```
 
 **iOS 壳**通过 `EmulatorBridge`（ObjC++）调用 C++ 内核，见
-[iOS/PocketNX/Services/EmulatorBridge](iOS/PocketNX/Services/EmulatorBridge.mm)
-（本地 Xcode 工程链接 Core 全部源 + `GuestThreadTrampoline.S`）。
+[iOS/PocketNX/Services/EmulatorBridge](iOS/PocketNX/Services/EmulatorBridge.mm)。
+Xcode 工程由 [project.yml](project.yml) 经 `xcodegen generate` 生成（链接 Core
+全部源 + `GuestThreadTrampoline.S`；`.xcodeproj` 不入库），在 iOS 模拟器上：
+
+```bash
+xcodegen generate
+xcodebuild -project PocketNX.xcodeproj -scheme PocketNX \
+    -destination 'platform=iOS Simulator,name=iPhone 17' -configuration Debug build
+xcrun simctl install booted <derived-data>/Debug-iphonesimulator/PocketNX.app
+xcrun simctl launch booted com.pocketnx.app -autoDemo   # 直达内置 demo
+```
+
+调试启动参数：`-autoDemo`（直达内置 demo，免文件选择器）、
+`-frameW <w> -frameH <h>`（帧缓冲尺寸覆盖）、`-logFile <name>`
+（PNX_LOG 落盘到 App 沙盒 Documents，便于抓取）。
 
 ### 开发与验收测试（开发机，无需 CMake）
 
@@ -91,6 +107,11 @@ pnx-runtime-test demo/hello_counter.nro
 
 - **Demo**：`demo/hello_counter.s` 经 `tools/pnx-nro-build` 打包为
   `hello_counter.nro`（HELLO + 帧计数器，30 帧后 `ret`，每帧 `SleepThread`）。
+- **iOS App 模拟器验证**：`project.yml`（xcodegen）描述 iOS 工程，
+  `xcodegen generate` 后 `xcodebuild -destination 'platform=iOS Simulator,name=iPhone 17'`
+  即可构建；`simctl launch ... -autoDemo` 可直接跑内置 demo（无需文件选择器）。
+  调试启动参数：`-autoDemo`（直达内置 demo）、`-frameW/-frameH`（帧尺寸）、
+  `-logFile <name>`（PNX_LOG 落盘到沙盒 Documents，便于抓日志）。
 - **已知环境问题**：本机（Mac mini M5 / macOS 27.0.1）在紧凑 store 循环写
   ≳0.2MB 缓冲区时存在非确定性执行异常（机器/OS 级，**非代码缺陷**），故
   Part B（1280×720）gated 到真机验收，见

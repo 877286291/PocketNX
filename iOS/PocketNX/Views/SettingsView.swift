@@ -13,7 +13,7 @@ struct SettingsView: View {
             Section("Status") {
                 LabeledContent("Running", value: isRunning ? "Yes" : "No")
                 LabeledContent("JIT enabled", value: jitEnabled ? "Yes" : "No (check StikDebug)")
-                    .foregroundStyle(jitEnabled ? .primary : .red)
+                    .foregroundStyle(jitEnabled ? Color.primary : Color.red)
                 LabeledContent("Guest frames", value: "\(guestFrames)")
             }
 

@@ -105,6 +105,31 @@ framebuffer 位置（heap / static / stack）。
 （host-control / counter-torture / bisect 为临时目录下的独立实验二进制，
 非仓库文件；如需重建，按 §4 表格配置重写即可。）
 
+### 4.5 iOS App 模拟器复现（iPhone 17 sim，同一物理机）
+
+iOS 27 模拟器（Xcode 27.0，iPhone 17）构建并运行 iOS App 后，同一机器级
+异常在 App 语境下同样复现，进一步佐证"机器/OS 级、与模拟器代码路径无关"：
+
+| 帧缓冲 | 崩溃形态 | 是否匹配 §3 指纹 |
+|---|---|---|
+| 1280×720（Part B） | guest 线程于清屏 store 循环中 SIGSEGV，`fault_addr` = 帧缓冲区末（base + capacity） | 是（guest 侧） |
+| 160×90（小帧，`-frameW/-frameH`） | 进程崩溃于 host 侧 `objc_release` / CFBundle 路径，被污染指针 ≈ 像素值 | 是（host 侧表现） |
+
+要点：
+
+- 完整管线（Bundle 载入 NRO → 解析 → SVC→BRK 重写 → guest 直执行 → 40 次
+  SleepThread trap 分派 → 帧缓冲写入）经 App 日志**确定性验证通过**；
+  崩溃发生在 guest store 循环，非管线缺陷。
+- Metal blit 路径无任何错误日志（MSL 编译 / pipeline / 纹理分配均正常），
+  画面纯黑系"深色帧（`0xFF101828` 按 RGBA 解析为暗褐）+ 小帧 + ~1s 被杀"叠加，
+  非渲染缺陷。
+- 结论不变：本机 Part B 与 App 内小帧验收均受此异常阻断，最终可视验收
+  归里程碑 F（真机 iPhone 15 Pro + StikDebug）。
+
+复现：`xcodebuild`（见 `project.yml`）构建 → `simctl install/launch
+booted com.pocketnx.app -autoDemo [-frameW 160 -frameH 90] -logFile pnx.log`，
+日志落于 App 沙盒 `Documents/pnx.log`。
+
 ## 5. 附带发现：本机内核对 x18 / TPIDR_EL0 的处理（实测）
 
 探针程序（x18probe，`SIGUSR1` + 不同 handler 行为）在本机的实测结果：

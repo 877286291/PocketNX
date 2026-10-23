@@ -4,6 +4,7 @@
 #include <cmath>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include <sys/mman.h>
 #include <stdio.h>
@@ -42,19 +43,19 @@ vertex BlitOut blit_vs(uint vid [[vertex_id]],
     // Pixel coordinates with top-left origin (both Metal texture rows and
     // guest rows run top-down).
     o.px = float2((ndc[vid].x + 1.0) * 0.5 * drawable.x,
-                  (1.0 - (ndc[vid].y + 1.0) * 0.5 * drawable.y));
+                  (1.0 - (ndc[vid].y + 1.0) * 0.5) * drawable.y);
     return o;
 }
 
-fragment float4 blit_fs(BlitOut in [[stage_in]],
-                        constant float4& fit [[buffer(0)]],
-                        texture2d<half> src [[texture(0)]]) {
+fragment half4 blit_fs(BlitOut in [[stage_in]],
+                       constant float4& fit [[buffer(0)]],
+                       texture2d<half> src [[texture(0)]]) {
     // fit = (offsetX, offsetY, width, height) in drawable pixels; outside
     // the letterbox rect the screen is black.
     bool inside = in.px.x >= fit.x && in.px.x < fit.x + fit.z &&
                   in.px.y >= fit.y && in.px.y < fit.y + fit.w;
     if (!inside) {
-        return float4(0.0h, 0.0h, 0.0h, 1.0h);
+        return half4(0.0h, 0.0h, 0.0h, 1.0h);
     }
     float2 uv = (in.px - float2(fit.x, fit.y)) / float2(fit.z, fit.w);
     constexpr sampler s(address::clamp_to_edge, filter::nearest);
@@ -67,7 +68,7 @@ public:
     MetalRenderer(id<MTLDevice> device, id<MTLCommandQueue> queue)
         : device_(device), queue_(queue) {}
 
-    void SetDrawable(id<MTLTexture> tex) { drawable_ = tex; }
+    void SetDrawable(id<CAMetalDrawable> drawable) { drawable_ = drawable; }
 
     void BeginFrame() override {}
     void EndFrame() override {}
@@ -77,7 +78,7 @@ public:
         if (!drawable_ || !rgba || !queue_ || width == 0 || height == 0) {
             return pnx::VoidResult::Err(pnx::InvalidArg);
         }
-        const MTLPixelFormat fmt = [drawable_ pixelFormat];
+        const MTLPixelFormat fmt = [drawable_ texture].pixelFormat;
         if (!EnsurePipeline(fmt) || !EnsureSourceTexture(width, height) ||
             !EnsureUniformBuffer()) {
             return pnx::VoidResult::Err(pnx::Unsupported);
@@ -94,8 +95,9 @@ public:
         // 2) Aspect-fit letterbox rect, in drawable pixels, written into the
         // shared uniform buffer: [0..15] = VS float4(drawableW, drawableH),
         // [16..31] = FS float4(offsetX, offsetY, rectW, rectH).
-        const double dw = static_cast<double>(drawable_.width);
-        const double dh = static_cast<double>(drawable_.height);
+        id<MTLTexture> dst = [drawable_ texture];
+        const double dw = static_cast<double>(dst.width);
+        const double dh = static_cast<double>(dst.height);
         const double fit = std::min(dw / double(width), dh / double(height));
         const double rw = double(width) * fit;
         const double rh = double(height) * fit;
@@ -113,7 +115,7 @@ public:
             return pnx::VoidResult::Err(pnx::Unsupported);
         }
         MTLRenderPassDescriptor* rp = [MTLRenderPassDescriptor renderPassDescriptor];
-        rp.colorAttachments[0].texture = drawable_;
+        rp.colorAttachments[0].texture = [drawable_ texture];
         rp.colorAttachments[0].loadAction = MTLLoadActionClear;
         rp.colorAttachments[0].storeAction = MTLStoreActionStore;
         rp.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
@@ -128,6 +130,9 @@ public:
         [enc setFragmentTexture:src_tex_ atIndex:0];
         [enc drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
         [enc endEncoding];
+        // MTKView does NOT auto-present: the delegate must present the drawable
+        // itself, otherwise the rendered content never reaches the screen.
+        [cb presentDrawable:drawable_];
         [cb commit];
         return pnx::VoidResult::Ok();
     }
@@ -204,7 +209,7 @@ private:
 
     id<MTLDevice> device_ = nil;
     id<MTLCommandQueue> queue_ = nil;
-    id<MTLTexture> drawable_ = nil;
+    id<CAMetalDrawable> drawable_ = nil;
     id<MTLTexture> src_tex_ = nil;
     uint32_t src_w_ = 0;
     uint32_t src_h_ = 0;
@@ -213,6 +218,40 @@ private:
     id<MTLBuffer> uniform_buf_ = nil;
 };
 
+} // namespace
+
+// ---------------------------------------------------------------------------
+// Host-side Metal self-test (launch arg `-testPattern`): blits a static
+// 16:9 four-quadrant color pattern without involving the guest. Proves the
+// blit path end-to-end in isolation. The pattern is filled exactly once, so
+// per-frame host store work stays far under the machine-level store-loop
+// anomaly threshold (see docs/ENVIRONMENT-ISSUES.md).
+// ---------------------------------------------------------------------------
+namespace {
+constexpr uint32_t kPatternW = 160;
+constexpr uint32_t kPatternH = 90;
+
+void FillTestPattern(uint8_t* px) {
+    for (uint32_t y = 0; y < kPatternH; ++y) {
+        for (uint32_t x = 0; x < kPatternW; ++x) {
+            uint8_t* p = px + (size_t)(y * kPatternW + x) * 4;
+            if (x < kPatternW / 2) {
+                if (y < kPatternH / 2) {
+                    p[0] = 0xFF; p[1] = 0x00; p[2] = 0x00;  // top-left red
+                } else {
+                    p[0] = 0x00; p[1] = 0x00; p[2] = 0xFF;  // bottom-left blue
+                }
+            } else {
+                if (y < kPatternH / 2) {
+                    p[0] = 0x00; p[1] = 0xFF; p[2] = 0x00;  // top-right green
+                } else {
+                    p[0] = 0xFF; p[1] = 0xFF; p[2] = 0xFF;  // bottom-right white
+                }
+            }
+            p[3] = 0xFF;
+        }
+    }
+}
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -232,6 +271,9 @@ private:
     // starts false without an ivar initializer (brace-init in the ivar list
     // is rejected by clang in ObjC++ mode).
     std::atomic<bool> guest_running_;
+    // Set in -init from the `-testPattern` launch arg (ivar initializers are
+    // rejected by clang in ObjC++ mode, so no default here).
+    BOOL testPattern_;
 }
 
 + (instancetype)shared {
@@ -244,15 +286,25 @@ private:
 - (instancetype)init {
     self = [super init];
     if (self) {
-        // Optional debug hook: `-logFile <name>` redirects every PNX_LOG line
-        // (fprintf to stderr) into a file in the app's Documents container, so
-        // logs can be pulled from the host via
-        //   xcrun simctl get_app_container booted com.pocketnx.app data
-        // and read at <container>/Documents/<name>. Genuinely useful on device
-        // too, where there is no attached console.
+        testPattern_ = NO;
+        // Optional debug hooks (launch args):
+        //  `-testPattern`  blit a static host-side color-quadrant pattern
+        //                  (no guest, no load) — a decisive self-test of the
+        //                  Metal blit path on simulator or device.
+        //  `-logFile <n>`  redirect every PNX_LOG line (fprintf to stderr)
+        //                  into a file in the app's Documents container, so
+        //                  logs can be pulled from the host via
+        //                    xcrun simctl get_app_container booted
+        //                    com.pocketnx.app data
+        //                  and read at <container>/Documents/<n>.
         NSArray<NSString *> *args = [[NSProcessInfo processInfo] arguments];
-        for (NSUInteger i = 0; i + 1 < args.count; ++i) {
-            if ([args[i] isEqualToString:@"-logFile"]) {
+        for (NSUInteger i = 0; i < args.count; ++i) {
+            if ([args[i] isEqualToString:@"-testPattern"]) {
+                testPattern_ = YES;
+            } else if ([args[i] isEqualToString:@"-logFile"]) {
+                if (i + 1 >= args.count) {
+                    break; // malformed: missing file name
+                }
                 NSString *dir = [NSSearchPathForDirectoriesInDomains(
                     NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
                 if (dir.length == 0) {
@@ -276,13 +328,18 @@ private:
     PNX_LOG_INFO("Bridge", "Metal renderer attached");
 }
 
-- (void)setDrawableTexture:(id<MTLTexture> _Nullable)texture {
+- (void)setDrawable:(id<CAMetalDrawable> _Nullable)drawable {
     if (renderer_) {
-        renderer_->SetDrawable(texture);
+        renderer_->SetDrawable(drawable);
     }
 }
 
 - (BOOL)loadGameAtURL:(NSURL *)url error:(NSError **)error {
+    if (testPattern_) {
+        // Host-side Metal self-test: no guest, no load (see -testPattern).
+        PNX_LOG_INFO("Bridge", "testPattern mode: guest load skipped");
+        return YES;
+    }
     if (!url) {
         if (error) {
             *error = [NSError errorWithDomain:@"PNX" code:1
@@ -390,6 +447,23 @@ private:
 }
 
 - (void)pumpFrame {
+    if (testPattern_) {
+        // Host-only self-test frame: filled exactly once, blitted on every
+        // drawable callback. No guest thread, no large per-frame store loop.
+        static std::vector<uint8_t> s_pattern(kPatternW * kPatternH * 4);
+        static bool s_filled = false;
+        if (!s_filled) {
+            FillTestPattern(s_pattern.data());
+            s_filled = true;
+            PNX_LOG_INFO("Bridge", "testPattern: blitting %ux%u quadrants (host-only)",
+                         (unsigned)kPatternW, (unsigned)kPatternH);
+        }
+        if (renderer_) {
+            renderer_->PresentFramebuffer(s_pattern.data(), kPatternW, kPatternH,
+                                          kPatternW * 4);
+        }
+        return;
+    }
     if (!runtime_ || !renderer_) {
         return;
     }

@@ -114,21 +114,36 @@ iOS 27 模拟器（Xcode 27.0，iPhone 17）构建并运行 iOS App 后，同一
 |---|---|---|
 | 1280×720（Part B） | guest 线程于清屏 store 循环中 SIGSEGV，`fault_addr` = 帧缓冲区末（base + capacity） | 是（guest 侧） |
 | 160×90（小帧，`-frameW/-frameH`） | 进程崩溃于 host 侧 `objc_release` / CFBundle 路径，被污染指针 ≈ 像素值 | 是（host 侧表现） |
+| 160×90 guest 运行（blit 修复后） | 启动后 ~1.2–1.6s 窗口内被击倒，最新实例为后台线程 `EXC_BAD_ACCESS`（Bus error: 10 / SIGBUS），faultingThread 非主线程 | 是（guest 侧表现） |
 
 要点：
 
-- 完整管线（Bundle 载入 NRO → 解析 → SVC→BRK 重写 → guest 直执行 → 40 次
+- 完整管线（Bundle 载入 NRO → 解析 → SVC→BRK 重写 → guest 直执行 →
   SleepThread trap 分派 → 帧缓冲写入）经 App 日志**确定性验证通过**；
-  崩溃发生在 guest store 循环，非管线缺陷。
-- Metal blit 路径无任何错误日志（MSL 编译 / pipeline / 纹理分配均正常），
-  画面纯黑系"深色帧（`0xFF101828` 按 RGBA 解析为暗褐）+ 小帧 + ~1s 被杀"叠加，
-  非渲染缺陷。
-- 结论不变：本机 Part B 与 App 内小帧验收均受此异常阻断，最终可视验收
-  归里程碑 F（真机 iPhone 15 Pro + StikDebug）。
+  崩溃发生在 guest store 循环 + trap/sleep 放大窗口内，非管线缺陷。
+- **更正（2026-10-23 模拟器复验）**：此前"画面纯黑系深色帧叠加、非渲染缺陷"
+  的判断**不成立**。`-testPattern` 自检（host 端四象限图案、不涉 guest）
+  隔离出 blit 路径 4 个**真实渲染 bug**，修复前黑屏/白屏与 guest 无关：
+
+  | # | 缺陷 | 现象 | 修复 |
+  |---|---|---|---|
+  | 1 | MSL fragment 声明 `float4` 返回，`texture2d<half>` 采样得 `half4` | MSL 运行时编译失败（xcodebuild 不可见），pipeline 从未建立 | 返回类型改 `half4` |
+  | 2 | 渲染后仅 `commit`，未调 `presentDrawable:`（MTKView 不自动 present） | 渲染内容永不上屏 | `commit` 前补 `[cb presentDrawable:drawable_]` |
+  | 3 | iOS 27 SDK 将 `texture` 属性自 `MTLDrawable` 移至 `CAMetalDrawable`，`MTKView.currentDrawable` 类型随之变化 | `[drawable_ texture]` 编译失败 | drawable 持有类型改 `id<CAMetalDrawable>`（QuartzCore） |
+  | 4 | VS 中 `px.y` 括号错位：`1.0-(ndc.y+1.0)*0.5*drawable.y`（`*drawable.y` 掉入括号内） | `px.y ∈ [-1310, 1]`，inside 判定恒假 → 全黑（被黑色 letterbox 掩盖） | 修正括号 |
+
+  四缺陷相互掩盖：逐层修复并以颜色编码/梯度诊断隔离后，#4 才暴露
+  （`px.x/1300` 横向梯度正常而 `px.y/2700` 恒 0）。
+- **验证**：`-testPattern` 四象限图案经完整 blit 路径（replaceRegion →
+  uniform 缓冲 → 全屏三角 → present）正确上屏，四色位置与 letterbox
+  居中全部正确，M1 渲染路径端到端可用。
+- 结论：本机 Part B 与 App 内 guest 运行的**可视验收**仍受此异常阻断
+  （160×90 guest 运行在启动窗口内被击倒，可读帧截图未捕获），最终可视
+  验收归里程碑 F（真机 iPhone 15 Pro + StikDebug）。
 
 复现：`xcodebuild`（见 `project.yml`）构建 → `simctl install/launch
-booted com.pocketnx.app -autoDemo [-frameW 160 -frameH 90] -logFile pnx.log`，
-日志落于 App 沙盒 `Documents/pnx.log`。
+booted com.pocketnx.app -autoDemo [-frameW 160 -frameH 90] [-testPattern]
+-logFile pnx.log`，日志落于 App 沙盒 `Documents/pnx.log`。
 
 ## 5. 附带发现：本机内核对 x18 / TPIDR_EL0 的处理（实测）
 

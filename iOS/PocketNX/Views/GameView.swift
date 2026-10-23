@@ -83,7 +83,7 @@ struct EmulatorMetalView: UIViewRepresentable {
         func draw(in view: MTKView) {
             let emu = PNXEmulator.shared()
             if let drawable = view.currentDrawable {
-                emu.setDrawableTexture(drawable.texture)
+                emu.setDrawable(drawable)
             }
             emu.pumpFrame()
         }

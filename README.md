@@ -24,8 +24,11 @@ PocketNX 是一个**从零构建**的 Nintendo Switch 模拟器，目标是让 i
 内置 demo（`demo/hello_counter.nro`：HELLO + 帧计数器）可在开发机 / 真机运行；
 iOS 桥接（`EmulatorBridge`，ObjC++）已接通 C++ `Runtime` 与 Metal 直出。
 iOS App 已在 iOS 27 模拟器构建并运行：完整管线（载入 → 重写 → 直执行 →
-trap 分派 → 帧缓冲 → Metal blit）经 App 日志验证通过；本机 store 循环异常
-同样影响模拟器运行（见 [docs/ENVIRONMENT-ISSUES.md](docs/ENVIRONMENT-ISSUES.md) §4.5）。
+trap 分派 → 帧缓冲 → Metal blit）经 App 日志验证通过；Metal blit 路径另经
+`-testPattern` 自检在模拟器上复验（四象限图案正确上屏，期间修复
+presentDrawable 缺失等 4 处渲染缺陷，见
+[docs/ENVIRONMENT-ISSUES.md](docs/ENVIRONMENT-ISSUES.md) §4.5）；本机 store
+循环异常同样影响模拟器内 guest 运行（可视验收 gated 到真机）。
 **待办**：iPhone 15 Pro 真机 1280×720 验收（里程碑 F，见
 [docs/ROADMAP.md](docs/ROADMAP.md)）。
 
@@ -89,8 +92,9 @@ xcrun simctl launch booted com.pocketnx.app -autoDemo   # 直达内置 demo
 ```
 
 调试启动参数：`-autoDemo`（直达内置 demo，免文件选择器）、
-`-frameW <w> -frameH <h>`（帧缓冲尺寸覆盖）、`-logFile <name>`
-（PNX_LOG 落盘到 App 沙盒 Documents，便于抓取）。
+`-frameW <w> -frameH <h>`（帧缓冲尺寸覆盖）、`-testPattern`
+（host 端 Metal 自检：不走 guest，直接 blit 四象限色图验证渲染路径）、
+`-logFile <name>`（PNX_LOG 落盘到 App 沙盒 Documents，便于抓取）。
 
 ### 开发与验收测试（开发机，无需 CMake）
 
@@ -111,6 +115,7 @@ pnx-runtime-test demo/hello_counter.nro
   `xcodegen generate` 后 `xcodebuild -destination 'platform=iOS Simulator,name=iPhone 17'`
   即可构建；`simctl launch ... -autoDemo` 可直接跑内置 demo（无需文件选择器）。
   调试启动参数：`-autoDemo`（直达内置 demo）、`-frameW/-frameH`（帧尺寸）、
+  `-testPattern`（host 端 Metal 自检，不走 guest，blit 四象限色图验证渲染路径）、
   `-logFile <name>`（PNX_LOG 落盘到沙盒 Documents，便于抓日志）。
 - **已知环境问题**：本机（Mac mini M5 / macOS 27.0.1）在紧凑 store 循环写
   ≳0.2MB 缓冲区时存在非确定性执行异常（机器/OS 级，**非代码缺陷**），故

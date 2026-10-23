@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#import <QuartzCore/CAMetalLayer.h>
 #import <TargetConditionals.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -11,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 // Frame flow (M1 direct execution):
 //   [emulator start] spawns a guest thread that runs Runtime::Run(); the guest
 //   renders into a shared RGBA8888 buffer (guest and host share addresses).
-//   Swift MTKView.draw -> setDrawableTexture -> [emulator pumpFrame]
+//   Swift MTKView.draw -> setDrawable -> [emulator pumpFrame]
 //     -> MetalRenderer::PresentFramebuffer blits the guest buffer (letterboxed)
 //     into the current drawable texture.
 
@@ -28,8 +29,11 @@ typedef NS_ENUM(NSInteger, PNXRunState) {
 // this after creating an MTKView).
 - (void)setupWithDevice:(id<MTLDevice>)device queue:(id<MTLCommandQueue>)queue;
 
-// Swap the drawable texture the backend presents into (MTKView drawable).
-- (void)setDrawableTexture:(id<MTLTexture> _Nullable)texture;
+// Set the drawable the backend renders into and presents (MTKView's
+// currentDrawable). Note: as of the iOS 27 SDK, MTLDrawable no longer
+// declares `texture` — it moved to CAMetalDrawable (QuartzCore), which
+// is also the declared type of MTKView.currentDrawable.
+- (void)setDrawable:(id<CAMetalDrawable> _Nullable)drawable;
 
 // Load a homebrew NRO / NSO / NXO by file URL. Returns NO + error on failure.
 - (BOOL)loadGameAtURL:(NSURL *)url error:(NSError **)error;
